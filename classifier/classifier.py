@@ -7,8 +7,13 @@ import json
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(host='localhost'))
 
+consume_arguments = {
+    'x-queue-type': 'classic',
+    'x-message-ttl': 90000
+}
+
 consume_channel = connection.channel()
-consume_channel.queue_declare(queue='work_queue', durable=True, arguments={'x-queue-type': 'quorum'})
+consume_channel.queue_declare(queue='work_queue', durable=True, arguments=consume_arguments)
 print('Waiting for tweets.')
 
 
@@ -175,7 +180,10 @@ def callback(ch, method, properties, body):
             publish_channel.basic_publish(
                 exchange='tweets_topics',
                 routing_key=topic,
-                body=(dict_tweet["author"]+" publicou: "+dict_tweet["content"])
+                body=(dict_tweet["author"]+" publicou: "+dict_tweet["content"]),
+                properties=pika.BasicProperties(
+                    expiration='30000'
+                )
             )
     time.sleep(3)             
     ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -183,4 +191,9 @@ def callback(ch, method, properties, body):
 
 consume_channel.basic_qos(prefetch_count=1)
 consume_channel.basic_consume(queue='work_queue', on_message_callback=callback)
-consume_channel.start_consuming()
+try:
+    consume_channel.start_consuming()
+except:
+    print("\nStopping classifier")
+    consume_channel.stop_consuming()
+    print("Connection closed.")
