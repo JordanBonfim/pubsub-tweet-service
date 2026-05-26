@@ -6,25 +6,16 @@ import com.google.gson.reflect.TypeToken;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
-
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 
 public class Main {
 
     private final static String QUEUE_NAME = "work_queue";
     public static void main(String[] args) throws Exception{
-
-        Random rand = new Random();
-
 
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
@@ -40,22 +31,21 @@ public class Main {
 
         List<Tweet> tweets = gson.fromJson(reader, listType);
 
-        System.out.println(tweets.size());
-        System.out.println(tweets.get(0).content);
 
 
-
+        Map<String, Object> queue_args = new HashMap<String, Object>();
+        queue_args.put("x-queue-type", "classic");
+        queue_args.put("x-message-ttl", 90000);
 
         try (Connection connection = factory.newConnection();
+
              Channel channel = connection.createChannel()) {
-            channel.queueDeclare(QUEUE_NAME, true, false, false, Map.of("x-queue-type", "quorum"));
+            channel.queueDeclare(QUEUE_NAME, true, false, false, queue_args);
 
             List<Tweet> batch = new ArrayList<>();
 
             for (int i = 1; i < tweets.size()+1; i += 1) {
-
                 batch.add(tweets.get(i-1));
-
                 if(i % 10 == 0){
                     String json = gson.toJson(batch);
 
@@ -71,10 +61,10 @@ public class Main {
                     Thread.sleep(5000);
                 }
             }
+
             // Ainda tem elementos para enviar
             if(batch.size()>0){
                 String json = gson.toJson(batch);
-
                 channel.basicPublish(
                         "",
                         QUEUE_NAME,
@@ -86,10 +76,7 @@ public class Main {
                 batch.clear();
                 Thread.sleep(5000);
             }
-
-
         }
-
         reader.close();
     }
 }
