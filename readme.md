@@ -2,6 +2,7 @@
 
 This project implements a simple Publish/Subscribe system using RabbitMQ to process tweets.
 
+GitHub repository available [here.](https://github.com/JordanBonfim/pubsub-tweet-service)
 
 
 ## Components
